@@ -1,0 +1,7 @@
+renv::install("hdf5r")
+renv::install("arrow")
+renv::install("Seurat@5.1.0")
+renv::install("tidyverse")
+renv::install("Banksy")
+renv::install("satijalab/seurat-wrappers")
+renv::install("dmcable/spacexr")

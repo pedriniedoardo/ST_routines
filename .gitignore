@@ -1,0 +1,12 @@
+*.Rproj
+.Rhistory
+.Rprofile
+.RData
+.Ruserdata
+
+# folder
+.Rproj.user/
+renv/
+.conda/
+data/
+out/
