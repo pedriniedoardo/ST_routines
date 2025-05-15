@@ -1296,6 +1296,43 @@
       "Repository": "RSPM",
       "Encoding": "UTF-8"
     },
+    "Rhdf5lib": {
+      "Package": "Rhdf5lib",
+      "Version": "1.24.1",
+      "Source": "Bioconductor",
+      "Type": "Package",
+      "Title": "hdf5 library as an R package",
+      "Authors@R": "c( person( \"Mike\", \"Smith\",  role=c(\"ctb\", \"cre\"),  email = \"grimbough@gmail.com\", comment = c(ORCID = \"0000-0002-7800-3848\") ), person( given = \"The HDF Group\", role = \"cph\" ))",
+      "Description": "Provides C and C++ hdf5 libraries.",
+      "License": "Artistic-2.0",
+      "Copyright": "src/hdf5/COPYING",
+      "LazyLoad": "true",
+      "VignetteBuilder": "knitr",
+      "Depends": [
+        "R (>= 4.2.0)"
+      ],
+      "Suggests": [
+        "BiocStyle",
+        "knitr",
+        "rmarkdown",
+        "tinytest",
+        "mockery"
+      ],
+      "URL": "https://github.com/grimbough/Rhdf5lib",
+      "BugReports": "https://github.com/grimbough/Rhdf5lib",
+      "SystemRequirements": "GNU make",
+      "Encoding": "UTF-8",
+      "biocViews": "Infrastructure",
+      "RoxygenNote": "7.1.2",
+      "git_url": "https://git.bioconductor.org/packages/Rhdf5lib",
+      "git_branch": "RELEASE_3_18",
+      "git_last_commit": "7ab9204",
+      "git_last_commit_date": "2023-12-11",
+      "Repository": "Bioconductor 3.18",
+      "NeedsCompilation": "yes",
+      "Author": "Mike Smith [ctb, cre] (<https://orcid.org/0000-0002-7800-3848>), The HDF Group [cph]",
+      "Maintainer": "Mike Smith <grimbough@gmail.com>"
+    },
     "Rtsne": {
       "Package": "Rtsne",
       "Version": "0.17",
@@ -7330,6 +7367,92 @@
       "Maintainer": "Tomasz Kalinowski <tomasz@posit.co>",
       "Repository": "RSPM"
     },
+    "rhdf5": {
+      "Package": "rhdf5",
+      "Version": "2.46.1",
+      "Source": "Bioconductor",
+      "Type": "Package",
+      "Title": "R Interface to HDF5",
+      "Authors@R": "c(person(\"Bernd\", \"Fischer\", role = c(\"aut\")),  person(\"Mike\", \"Smith\",  role=c(\"aut\", \"cre\"),  email = \"mike.smith@embl.de\", comment = c(ORCID = \"0000-0002-7800-3848\") ), person(\"Gregoire\", \"Pau\", role=\"aut\"), person(\"Martin\", \"Morgan\", role = \"ctb\"), person(\"Daniel\", \"van Twisk\", role = \"ctb\"))",
+      "Description": "This package provides an interface between HDF5 and R.  HDF5's main features are the ability to store and access very large and/or complex datasets and a wide variety of metadata on mass storage (disk)  through a completely portable file format. The rhdf5 package is thus suited for the exchange of large and/or complex datasets between R and other  software package, and for letting R applications work on datasets that are  larger than the available RAM.",
+      "License": "Artistic-2.0",
+      "URL": "https://github.com/grimbough/rhdf5",
+      "BugReports": "https://github.com/grimbough/rhdf5/issues",
+      "LazyLoad": "true",
+      "VignetteBuilder": "knitr",
+      "Imports": [
+        "Rhdf5lib (>= 1.13.4)",
+        "rhdf5filters",
+        "S4Vectors"
+      ],
+      "Depends": [
+        "R (>= 4.0.0)",
+        "methods"
+      ],
+      "Suggests": [
+        "bit64",
+        "BiocStyle",
+        "knitr",
+        "rmarkdown",
+        "testthat",
+        "bench",
+        "dplyr",
+        "ggplot2",
+        "mockery",
+        "BiocParallel"
+      ],
+      "LinkingTo": [
+        "Rhdf5lib"
+      ],
+      "SystemRequirements": "GNU make",
+      "biocViews": "Infrastructure, DataImport",
+      "Encoding": "UTF-8",
+      "Roxygen": "list(markdown = TRUE)",
+      "RoxygenNote": "7.2.3",
+      "git_url": "https://git.bioconductor.org/packages/rhdf5",
+      "git_branch": "RELEASE_3_18",
+      "git_last_commit": "27bab89",
+      "git_last_commit_date": "2023-11-29",
+      "Repository": "Bioconductor 3.18",
+      "NeedsCompilation": "yes",
+      "Author": "Bernd Fischer [aut], Mike Smith [aut, cre] (<https://orcid.org/0000-0002-7800-3848>), Gregoire Pau [aut], Martin Morgan [ctb], Daniel van Twisk [ctb]",
+      "Maintainer": "Mike Smith <mike.smith@embl.de>"
+    },
+    "rhdf5filters": {
+      "Package": "rhdf5filters",
+      "Version": "1.14.1",
+      "Source": "Bioconductor",
+      "Type": "Package",
+      "Title": "HDF5 Compression Filters",
+      "Authors@R": "c(person(\"Mike\", \"Smith\",  role=c(\"aut\", \"cre\"),  email = \"grimbough@gmail.com\", comment = c(ORCID = \"0000-0002-7800-3848\")) )",
+      "Description": "Provides a collection of additional compression filters for HDF5  datasets. The package is intended to provide seemless integration with  rhdf5, however the compiled filters can also be used with external  applications.",
+      "License": "BSD_2_clause + file LICENSE",
+      "LazyLoad": "true",
+      "VignetteBuilder": "knitr",
+      "Suggests": [
+        "BiocStyle",
+        "knitr",
+        "rmarkdown",
+        "tinytest",
+        "rhdf5 (>= 2.34.0)"
+      ],
+      "SystemRequirements": "GNU make",
+      "URL": "https://github.com/grimbough/rhdf5filters",
+      "BugReports": "https://github.com/grimbough/rhdf5filters",
+      "LinkingTo": [
+        "Rhdf5lib"
+      ],
+      "RoxygenNote": "7.2.3",
+      "Encoding": "UTF-8",
+      "biocViews": "Infrastructure, DataImport",
+      "git_url": "https://git.bioconductor.org/packages/rhdf5filters",
+      "git_branch": "RELEASE_3_18",
+      "git_last_commit": "5ddd484",
+      "git_last_commit_date": "2023-11-06",
+      "NeedsCompilation": "yes",
+      "Author": "Mike Smith [aut, cre] (<https://orcid.org/0000-0002-7800-3848>)",
+      "Maintainer": "Mike Smith <grimbough@gmail.com>"
+    },
     "rjson": {
       "Package": "rjson",
       "Version": "0.2.21",
@@ -7787,6 +7910,35 @@
       "Author": "Viktor Petukhov [aut], Rasmus Rydbirk [aut], Peter Kharchenko [aut], Evan Biederstedt [aut, cre]",
       "Maintainer": "Evan Biederstedt <evan.biederstedt@gmail.com>",
       "Repository": "https://packagemanager.posit.co/cran/__linux__/jammy/latest"
+    },
+    "schard": {
+      "Package": "schard",
+      "Version": "0.0.1",
+      "Source": "GitHub",
+      "Title": "Reticulate-free single cell object conversion",
+      "Authors@R": "person(given = \"Pavel\", family = \"Mazin\", role = c(\"aut\", \"cre\"), email = \"iaa.aka@gmail.com\", comment = c(ORCID = \"0000-0001-9268-3352\"))",
+      "Description": "Load scanpy h5ad file into R.",
+      "License": "GPL-3",
+      "Encoding": "UTF-8",
+      "Roxygen": "list(markdown = TRUE)",
+      "RoxygenNote": "7.3.1",
+      "Suggests": [
+        "SingleCellExperiment",
+        "Seurat"
+      ],
+      "Imports": [
+        "Matrix",
+        "rhdf5"
+      ],
+      "biocViews": "rhdf5",
+      "Author": "Pavel Mazin [aut, cre] (<https://orcid.org/0000-0001-9268-3352>)",
+      "Maintainer": "Pavel Mazin <iaa.aka@gmail.com>",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "cellgeni",
+      "RemoteRepo": "schard",
+      "RemoteRef": "main",
+      "RemoteSha": "1b62a7c38456b41a39896d8b7118121600767f3b"
     },
     "sctransform": {
       "Package": "sctransform",

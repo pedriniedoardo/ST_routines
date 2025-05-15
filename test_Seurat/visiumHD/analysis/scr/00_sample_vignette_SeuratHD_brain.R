@@ -252,6 +252,9 @@ cortex <- CreateSegmentation(cortex.coordinates)
 object[["cortex"]] <- Overlay(object[["slice1.008um"]], cortex)
 cortex <- subset(object, cells=Cells(object[['cortex']]))
 
+# save the object at this stage
+saveRDS(cortex,"../out/object/00_cortex.rds")
+
 # Integration with scRNA-seq data (deconvolution) -------------------------
 # Seurat v5 also includes support for [Robust Cell Type Decomposition](https://www.nature.com/articles/s41587-021-00830-w), a computational approach to deconvolve spot-level data from spatial datasets, when provided with an scRNA-seq reference. RCTD has been shown to accurately annotate spatial data from a variety of technologies, including SLIDE-seq, Visium, and the 10x Xenium in-situ spatial platform. We observe good performance with Visium HD as well.
 # 
