@@ -1,0 +1,1130 @@
+---
+title: "Sequencing assays"
+author:
+  - Stefano Mangiola, South Australian immunoGENomics Cancer Institute^[<mangiola.stefano@adelaide.edu.au>], Walter and Eliza Hall Institute^[<mangiola.s at wehi.edu.au>]
+output: rmarkdown::html_vignette
+# bibliography: "`r file.path(system.file(package='tidySpatialWorkshop', 'vignettes'), 'tidyomics.bib')`"
+vignette: >
+  %\VignetteIndexEntry{Sequencing assays}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = FALSE)
+
+```
+
+# Session 1: Spatial Analysis of Sequencing Data
+
+## Overview
+
+This workshop introduces spatial transcriptomics analysis using the Bioconductor framework, with a particular focus on the `SpatialExperiment` package. Participants will learn essential concepts and practical skills for analyzing spatially-resolved genomic data.
+
+### Learning Objectives
+
+By the end of this session, participants will be able to:
+- Understand the fundamentals of spatial transcriptomics data analysis
+- Work with the `SpatialExperiment` package and related tools
+- Perform basic data manipulation and visualization of spatial data
+- Apply quality control measures to spatial transcriptomics data
+- Conduct dimensionality reduction and clustering analyses
+- Interpret spatial patterns in gene expression data
+
+### Prerequisites
+
+- Basic knowledge of R programming
+- Familiarity with genomic data concepts
+- Understanding of basic statistical methods
+
+## Experimental technologies
+
+**Spatial-omics** encompasses a suite of powerful methods that reveal not only which genes are active in a tissue but also exactly where those genes are switched on. One widely used strategy involves laying a thin slice of tissue onto a specially prepared glass slide that carries an array of microscopic “spots,” each spot marked with its own unique molecular barcode. As the tissue is gently broken down, the messenger RNA molecules released from each cell adhere to the underlying spots and pick up that spot’s barcode. By sequencing the barcodes together with the captured RNA, researchers can reconstruct a two-dimensional map of gene expression. For example, the Visium platform from 10x Genomics uses this barcoded-surface approach to chart gene activity across tumour biopsies, helping oncologists to identify pockets of treatment-resistant cells within a cancerous mass.
+
+An alternative method, known as **combinatorial FISH** (fluorescence in situ hybridisation), skips the need for physical barcodes by using fluorescent probes that bind directly to RNA molecules within intact tissue. Each probe is tagged with a small coloured label, and by carrying out multiple rounds of staining, imaging and probe removal, a unique sequence of coloured dots is generated for each target gene. It’s akin to reading a barcode of coloured spots: once the entire sequence of images has been captured, computational decoding reveals which gene each pattern corresponds to and pinpoints its exact location. This technique underlies MERFISH (Multiplexed Error-Robust FISH), which neuroscientists often employ to map hundreds of genes simultaneously in brain sections, illuminating the molecular identities of different neuronal subtypes.
+
+**In-situ sequencing** offers yet another route to spatially resolved transcriptomics by performing the sequencing reactions directly within fixed tissue sections. Rather than relying on pre-made probes, this approach uses a series of enzymatic ligation or polymerisation steps to read out the RNA sequence base by base. At each cycle, fluorescently labelled reagents indicate which nucleotide (A, C, G or T) has been incorporated, and repeated imaging across multiple cycles yields short sequence reads in situ. Once these reads are matched to a reference genome, they reveal precisely where specific transcripts lie. Developmental biologists have harnessed this method—pioneered by technologies such as Fluorescent In Situ Sequencing (FISSEQ)—to follow gene expression patterns during embryo formation, tracking how cells differentiate according to their spatial context.
+
+```{r, echo=FALSE, out.width="700px"}
+library(here)
+
+knitr::include_graphics(here("inst/images/three_technologies.png"))
+```
+
+The **Visium CytAssist** platform from 10x Genomics brings the power of spatial transcriptomics into a streamlined, sequencing-based workflow. At its heart lies a standard glass slide bearing an 11 mm by 11 mm capture area patterned with roughly 14 000 microscopic spots (or 5 000 spots on a smaller 6.5 mm by 6.5 mm format). Each spot is densely coated with millions of identical oligonucleotides, each bearing a unique spatial barcode, a unique molecular identifier (UMI) and a poly(dT) tail designed to bind the polyadenylated tails of mRNA. When a fresh‐frozen or FFPE tissue section is mounted onto this slide, RNA molecules released during permeabilisation will hybridise to these oligos, effectively “stamping” each transcript with its precise tissue coordinates.
+
+The CytAssist instrument automates the critical steps of permeabilisation, RNA digestion and probe release. Rather than capturing native transcripts directly, Visium employs probe hybridisation: a comprehensive set of probes tiles the entire transcriptome (v2 chemistry covers some 18 000 human or 19 000 mouse genes), binding selectively to their target RNAs. Once the tissue has been permeabilised, these probes are enzymatically released and immediately recaptured by the underlying barcoded array. A short extension reaction then attaches the probe insert to the spatial barcode and UMI, before a denaturation step frees the complete construct for library preparation.
+
+Sequencing libraries are configured so that Read 1 decodes the slide’s spatial barcode and the UMI, while Read 2 reads into the ligated probe insert, revealing the gene identity. To ensure robust detection of both abundant and rare messages, Visium recommends a minimum of 25 000 read‐pairs per covered spot. Optional immunofluorescence staining can be performed in parallel, providing morphological and protein‐level context alongside the transcriptomic data.
+
+In practice, Visium CytAssist has found widespread use across many fields. Cancer researchers have applied it to map immune cell infiltration and stromal niches within melanoma or breast carcinoma biopsies. Developmental biologists use it to chart gene expression gradients in embryonic tissues, revealing how cells acquire distinct identities in different locations. Even neuroscientists have begun to dissect the molecular architecture of brain regions, linking spatial patterns of gene activity with anatomy and function. By combining a turnkey instrument with a comprehensive probe set and high‐throughput sequencing, Visium offers an accessible route to the spatial “geography” of gene expression in virtually any tissue.
+
+```{r, echo=FALSE, out.width="700px"}
+library(here)
+
+knitr::include_graphics(here("inst/images/visium.png"))
+```
+
+The **Visium HD** system represents a next-generation leap in spatial transcriptomics, offering subcellular resolution on a standard CytAssist instrument. Instead of discrete 55 µm spots, the Visium HD slide presents a continuous lawn of capture oligonucleotides across a 6.5 mm × 6.5 mm area, each oligo bearing a unique spatial barcode and UMI. These barcodes are patterned in a fine grid of 2 µm × 2 µm squares, which are digitally binned into 8 µm × 8 µm “pixels” for data analysis. In practice, this means that gene expression can be mapped at roughly one-cell or even subcellular scale—more than a six-fold improvement in resolution compared with the original Visium array.
+
+As with the standard Visium workflow, fresh-frozen or FFPE tissue sections are first stained (H&E or immunofluorescence, if desired) and imaged for morphological context. The CytAssist then automates permeabilisation, RNA digestion and probe‐release steps: a comprehensive probe set tiles the entire transcriptome, binding each target mRNA; released probes are recaptured by the underlying barcoded oligo lawn; and a short extension reaction fuses the probe insert to its spatial barcode and UMI. After denaturation frees these constructs, they undergo library preparation and high-throughput sequencing. Read 1 decodes the spatial barcode and UMI, while Read 2 reads into the probe insert to identify the gene. To cover the full 6.5 mm capture area at HD resolution, Visium HD recommends approximately 275 million read-pairs per run.
+
+```{r, echo=FALSE, out.width="700px"}
+library(here)
+
+knitr::include_graphics(here("inst/images/visiumhd.png"))
+```
+
+**BGI’s STOmics** system brings spatial transcriptomics onto DNA nanoball (DNB) patterned chips that can cover areas from a few square millimetres right up to an entire microscope slide, offering both enormous scale and subcellular resolution. The process begins with the creation of a dense array of molecular “nanoballs,” each just 220 nm across and stamped onto the chip in a precise grid. During chip manufacture, each nanoball is endowed with three key elements: a poly-T tail for capturing polyadenylated mRNA, a unique molecular identifier (UMI) to count individual transcripts, and a coordinate identifier (CID) that records its exact X–Y position on the array.
+
+Once a freshly frozen or paraformaldehyde-fixed tissue section has been mounted and (optionally) stained for nuclei or protein markers, the chip is brought into contact with the specimen so that mRNA diffuses down into the nanoball layer and hybridises to the poly-T oligos. Reverse transcription then converts these captured RNAs into complementary DNA, preserving both their sequence information and spatial tag. Library construction and high-throughput sequencing follow much as in conventional RNA-seq, but every read now carries the CID and UMI, which bioinformatics pipelines use to reconstruct a high-density map of gene expression.
+
+The sheer density of the DNB pattern—over 25 000 spots per 100 µm² in the highest-resolution formats—means that STOmics can detect transcripts at nearly subcellular scale, revealing fine-grained differences in gene activity within single cells or across tiny tissue niches. At the same time, chip formats up to 174 cm² in area allow researchers to profile entire organs or large tissue biopsies in one run, without stitching together multiple fields of view. In practice, developmental biologists have used this platform to survey gene expression across whole zebrafish embryos, while tumour biologists have mapped the spatial organisation of immune infiltrates in large cancer resections. By marrying nanometre-scale resolution with slide-wide coverage, BGI’s STOmics empowers scientists to explore biological landscapes from the level of subcellular compartments all the way up to entire tissue architectures.
+
+```{r, echo=FALSE, out.width="700px"}
+library(here)
+
+knitr::include_graphics(here("inst/images/stomics.png"))
+```
+
+
+## Introduction to Bioconductor
+
+Bioconductor is an open-source, open-development software project built on the R programming language. It provides powerful tools for analyzing and comprehending high-throughput genomic data.
+
+### Key Features
+
+1. **Comprehensive Package Ecosystem**
+   - Over 2,000 software packages
+   - Specialized tools for various types of genomic data
+   - Integration capabilities across different data types
+
+2. **Quality Standards**
+   - Rigorous peer review process
+   - Consistent documentation
+   - Regular version updates
+
+3. **Community Support**
+   - Active developer community
+   - Extensive documentation
+   - Regular workshops and conferences
+
+### Spatial Omics Analysis in Bioconductor
+
+Spatial omics analysis combines traditional genomic data with spatial information, enabling researchers to understand gene expression patterns within their tissue context. Bioconductor provides several specialized tools for this purpose:
+
+- Dedicated spatial analysis packages
+- Integration with existing genomic analysis workflows
+- Visualization tools for spatial data
+- Statistical methods for spatial patterns
+
+#### Support Resources
+
+- Slack channel: #community-bioc
+- Support forum: https://support.bioconductor.org/
+
+In the following sections of this workshop, we will explore practical examples and dive deeper into how Bioconductor is used in spatial omics analyses, including hands-on coding examples. Stay tuned for an engaging journey through spatial omics with Bioconductor!
+
+### 2. Getting Started with SpatialExperiment
+
+The `SpatialExperiment` package provides a robust framework for handling spatial transcriptomics data. It extends the `SingleCellExperiment` class by adding functionality specific to spatial data:
+
+- Storage of spatial coordinates
+- Management of tissue images
+- Integration of spot-based and cell-based data
+- Specialized methods for spatial analysis
+
+Righelli et al. doi: [10.1093/bioinformatics/btac299](https://academic.oup.com/bioinformatics/article/38/11/3128/6575443?login=false)
+
+```{r, echo=FALSE, out.width="700px"}
+library(here)
+
+knitr::include_graphics(here("inst/images/spatialExperimentClass.png"))
+```
+
+```{r, eval=FALSE}
+# Install BiocManager
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+# Install SpatialExperiment package
+BiocManager::install("SpatialExperiment")
+
+```
+
+### 3. Downloading Example Dataset
+
+We'll work with data from the `spatialLIBD` package, which contains spatial transcriptomics data from human dorsolateral prefrontal cortex. This dataset provides an excellent example for learning spatial analysis techniques as it includes:
+
+- Multiple tissue sections
+- Known anatomical layers
+- Rich molecular information
+- High-quality imaging data
+
+```{r, message=FALSE, warning=FALSE}
+
+
+# Load the SpatialExperiment package
+
+# For SpatialExperiment the following might be needed
+# 1. bash: module load ImageMagick/6.9.11-22
+# 2. R: devtools::install_github("ropensci/magick")
+
+library(SpatialExperiment)
+```
+
+Visualisation functions for spatial transcriptomics data.
+
+```{r, message=FALSE, warning=FALSE}
+library(ggspavis)
+```
+
+Utility packages for single-cell data.
+
+```{r, message=FALSE, warning=FALSE}
+library(scuttle)
+library(scater)
+library(scran)
+```
+
+In this section, we explore the handling and processing of spatial transcriptomics data using the `spatialLIBD` and `ExperimentHub` packages. The following R code block retrieves a specific dataset from the `ExperimentHub`, a Bioconductor project designed to manage and distribute large biological data sets. The code efficiently fetches the data, removes any existing dimensional reductions, and filters the dataset to include only selected samples. This approach is essential for analysing spatial patterns in gene expression across multiple samples, and the code below exemplifies how to manipulate these datasets in preparation for further analysis. This process is adapted from the `Banksy` package's vignette, which provides advanced methods for multi-sample spatial transcriptomics.
+
+Maynard and Torres et al., doi: [10.1038/s41593-020-00787-0](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8095368/), [tutorial](https://www.bioconductor.org/packages/release/data/experiment/vignettes/spatialLIBD/inst/doc/spatialLIBD.html) 
+
+```{r, message=FALSE, warning=FALSE}
+library(spatialLIBD)
+library(ExperimentHub)
+
+# To avoid error for SPE loading 
+# https://support.bioconductor.org/p/9161859/#9161863
+setClassUnion("ExpData", c("matrix", "SpatialExperiment"))
+
+spatial_data <- 
+  ExperimentHub::ExperimentHub() |> 
+  spatialLIBD::fetch_data( eh = _, type = "spe")
+
+names(libd_layer_colors) = gsub("ayer", "", names(libd_layer_colors))
+
+# Clear the reductions
+reducedDims(spatial_data) = NULL 
+
+# Select only 3 samples
+spatial_data = spatial_data[,spatial_data$sample_id %in% c("151673", "151675", "151676")]
+
+# Display the object
+spatial_data
+
+```
+
+From: <https://bookdown.org/sjcockell/ismb-tutorial-2023/practical-session-2.html>
+
+We shows metadata for each cell, helping understand the dataset's structure.
+
+```{r}
+col_data = colData(spatial_data)
+
+knitr::kable(
+  head(col_data),
+  format = "html"
+)
+```
+
+We access and display feature-related information from the dataset.
+
+```{r}
+row_data = rowData(spatial_data)
+
+knitr::kable(
+  head(row_data),
+  format = "html"
+)
+```
+
+Here, we perform a preliminary examination of the assay data contained within the spatial dataset.
+
+```{r}
+assay(spatial_data)[1:20, 75:100]
+```
+
+### 4. Data Visualisation and Manipulation
+
+Spatial transcriptomics data requires specialized visualization approaches to understand both molecular and spatial aspects simultaneously. The `ggspavis` package provides powerful tools for this purpose:
+
+```{r, fig.width=6, fig.height=6}
+# image data
+imgData(spatial_data)
+
+# Simple visualization of spatial data
+ggspavis::plotSpots(spatial_data) + 
+  facet_wrap(~sample_id)
+
+```
+
+::: {.note}
+**Exercise 1.0**
+
+Calculate how many spots have been profiled, per sample. And calculate what is the % of the total available spots in Visium low resolution.
+:::
+
+We can enhance our understanding by adding layer annotations. In this dataset, layers L1-6 represent different cortical layers, while WM indicates white matter:
+
+```{r, fig.width=6, fig.height=6}
+# Plot spots with anatomical annotations
+ggspavis::plotSpots(
+  spatial_data, 
+  annotate = "spatialLIBD"
+) + 
+  facet_wrap(~sample_id)
+```
+
+Explore additional visualisation features offered by the Visium platform, exposing the H&E (hematoxylin and eosin) image.
+
+```{r, fig.width=6, fig.height=6}
+ggspavis::plotVisium(spatial_data, point_size = 0.5)
+```
+
+This visualisation focuses on specific tissue features within the dataset, emphasising areas of interest.
+1. **Mitochondrial Content**: High mitochondrial gene expression often indicates stressed or dying cells
+2. **Library Size**: Total RNA content per spot
+3. **Number of Detected Genes**: Diversity of gene expression per spot
+
+```{r, fig.width=6, fig.height=6}
+ggspavis::plotVisium(
+  spatial_data, 
+  annotate = "spatialLIBD", 
+  highlight = "in_tissue", 
+  point_size =0.5
+) + 
+  facet_wrap(~sample_id)
+
+```
+
+### 5. Quality control and filtering
+
+We will use the `scater` package [McCarthy et al. 2017](https://academic.oup.com/bioinformatics/article/33/8/1179/2907823?login=true) to compute the three primary QC metrics we discussed earlWe'llUsing the scater Package for QC Metrics: We'll apply the `scater` package to compute three primary quality control metrics. We'll also use `ggspavis` for visualisation along with some custom plotting techniques.
+
+Previously, we visualised both on- and off-tissue spots. Moving forward, we focus on on-tissue spots for more relevant analyses. This block shows how to filter out off-tissue spots to refine the dataset.
+
+Source [OSTAWorkshopBioc2021](https://lmweber.org/OSTAWorkshopBioc2021/articles/Vignette03_Analysis_workflow.html)
+
+```{r}
+## Dataset dimensions before the filtering
+dim(spatial_data)
+```
+
+Filtering Dataset to Retain Only On-Tissue Spots: We then refine our dataset by keeping only those spots that are on-tissue, aligning with our focus for subsequent analysis. The dimensions of the dataset after filtering are displayed to confirm the changes.
+
+```{r}
+## Subset to keep only on-tissue spots
+spatial_data <- spatial_data[, colData(spatial_data)$in_tissue == 1]
+dim(spatial_data)
+```
+
+#### Mitochondrial
+
+Next, we identify mitochondrial genes, as they are indicative of cell health. Cells with high mitochondrial gene expression typically indicate poor health or dying cells, which we aim to exclude.
+
+```{r}
+## Classify genes as "mitochondrial" (is_mito == TRUE) 
+## or not (is_mito == FALSE)
+is_gene_mitochondrial <- grepl("(^MT-)|(^mt-)", rowData(spatial_data)$gene_name)
+rowData(spatial_data)$gene_name[is_gene_mitochondrial]
+```
+
+After identifying mitochondrial genes, we apply quality control metrics to further clean the dataset. This involves adding per-cell QC measures and setting a threshold to exclude cells with high mitochondrial transcription.
+
+```{r}
+## Add per-cell QC metrics to spatial data using identified mitochondrial genes
+spatial_data <- scater::addPerCellQC(
+  spatial_data, 
+  subsets = list(mito = is_gene_mitochondrial)
+)
+
+## Select expressed genes threshold
+qc_mitochondrial_transcription <- colData(spatial_data)$subsets_mito_percent > 30
+
+## Check how many spots are filtered out
+table(qc_mitochondrial_transcription)
+```
+
+After applying the QC metrics, it's crucial to visually assess their impact. This step involves checking the spatial pattern of the spots removed based on high mitochondrial transcription, helping us understand the distribution and quality of the remaining dataset.
+
+```{r, fig.width=6, fig.height=6}
+## Add threshold in colData
+colData(spatial_data)$qc_mitochondrial_transcription <- qc_mitochondrial_transcription
+
+## Visualize spatial pattern of filtered spots
+plotSpotQC(
+  spatial_data, 
+  plot_type = "spot",  
+  annotate = "qc_mitochondrial_transcription"
+) + 
+  facet_wrap(~sample_id)
+```
+
+#### Library Size Analysis
+
+This analysis focuses on examining the distribution of library sizes across different spots. It uses a histogram and density plot to visualise the range and commonality of library sizes in the dataset.
+
+```{r, fig.width=6, fig.height=6}
+## Visualize library size distribution
+data.frame(colData(spatial_data)) |> 
+  ggplot(aes(x = sum)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 60) +
+  geom_density() +
+  scale_x_log10() +
+  xlab("Library size") + 
+  ylab("Density") + 
+  theme_classic()
+```
+
+Setting Library Size Threshold: After examining the library sizes, a threshold is applied to identify spots with library sizes below 700, which are considered for potential exclusion from further analysis.
+
+```{r}
+## Select library size threshold
+qc_total_counts <- colData(spatial_data)$sum < 700
+
+## Check how many spots are filtered out
+table(qc_total_counts)
+```
+
+Incorporating Library Size Threshold in Dataset: This step involves adding the library size threshold to the dataset's metadata and examining the spatial pattern of the spots that have been removed based on this criterion.
+
+```{r, fig.width=6, fig.height=6}
+
+## Add threshold in colData
+colData(spatial_data)$qc_total_counts <- qc_total_counts
+
+## Check for putative spatial pattern of removed spots
+plotSpotQC(
+  spatial_data, 
+  plot_type = "spot",  
+  annotate = "qc_total_counts", 
+) + 
+  facet_wrap(~sample_id)
+
+
+```
+
+#### Detected genes
+
+This analysis examines how many genes are expressed per spot, using a histogram and density plot to visualise the distribution of gene counts across the dataset.
+
+```{r, fig.width=6, fig.height=6}
+## Density and histogram of library sizes
+data.frame(colData(spatial_data) ) |> 
+  ggplot(aes(x = detected)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 60) +
+  geom_density() +
+  scale_x_log10() +
+  xlab("Number of genes with > 0 counts") + 
+  ylab("Density") + 
+  theme_classic()
+```
+
+
+Setting Gene Expression Threshold: This block applies a threshold to identify spots with fewer than 500 detected genes, considering these for exclusion to ensure data quality.
+
+```{r}
+## Select expressed genes threshold
+qc_detected_genes <- colData(spatial_data)$detected < 500
+## Check how many spots are filtered out
+table(qc_detected_genes)
+```
+
+Incorporating Gene Expression Threshold in Dataset: After setting the gene expression threshold, it is added to the dataset's metadata. The spatial pattern of spots removed based on this threshold is then examined.
+
+```{r, fig.width=6, fig.height=6}
+## Add threshold in colData
+colData(spatial_data)$qc_detected_genes <- qc_detected_genes
+
+## Check for putative spatial pattern of removed spots
+plotSpotQC(
+  spatial_data, 
+  plot_type = "spot",  
+  annotate = "qc_detected_genes", 
+) + 
+  facet_wrap(~sample_id)
+
+```
+
+Exploring the Relationship Between Library Size and Number of Genes Detected: This analysis explores the correlation between library size and the number of genes detected in each spot, providing insights into data quality and sequencing depth.
+
+```{r, fig.width=6, fig.height=6}
+## Density and histogram of library sizes
+data.frame(colData(spatial_data)) |> 
+  ggplot(aes(sum, detected)) +
+  geom_point(shape=".") +
+  scale_x_log10() +
+  scale_y_log10() +
+  xlab("Library size") + 
+  ylab("Number of genes with > 0 counts") + 
+  theme_classic()
+```
+
+#### Combined filtering
+
+After applying all QC filters, this block combines them and stores the results in the dataset. The spatial patterns of all discarded spots are then reviewed to ensure comprehensive quality control.
+
+```{r, fig.width=6, fig.height=6}
+
+## Store the set in the object
+colData(spatial_data)$discard <- qc_total_counts | qc_detected_genes | qc_mitochondrial_transcription
+
+## Check the spatial pattern of combined set of discarded spots
+plotSpotQC(
+  spatial_data, 
+  plot_type = "spot",  
+  annotate = "discard", 
+) + 
+  facet_wrap(~sample_id)
+
+```
+
+The final step in data preprocessing involves removing all spots identified as low-quality based on the previously applied thresholds, refining the dataset for subsequent analyses.
+
+```{r}
+spatial_data = spatial_data[,!colData(spatial_data)$discard ]
+```
+
+### 6. Dimensionality reduction
+
+Dimensionality reduction is essential in spatial transcriptomics due to the high-dimensional nature of the data, which includes vast gene expression profiles across various spatial locations. Techniques such as PCA (Principal Component Analysis) and UMAP (Uniform Manifold Approximation and Projection) are particularly valuable. PCA helps to reduce noise and highlight the most significant variance in the data, making it simpler to uncover underlying patterns and correlations. UMAP, ofen calculated from principal components (and not directly from features) preserves both global and local data structures, enabling more nuanced visualisations of complex cellular landscapes. Together, these methods facilitate a deeper understanding of spatial gene expression, helping to reveal biological insights such as cellular heterogeneity and tissue structure, which are crucial for both basic biological research and clinical applications.
+
+#### Variable gene identification
+
+```{r, message=FALSE, warning=FALSE, fig.width=6, fig.height=6}
+
+genes <- !grepl(pattern = "^Rp[l|s]|Mt", x = rownames(spatial_data))
+dec = scran::modelGeneVar(spatial_data, subset.row = genes) 
+
+
+# Visualisation
+plot(dec$mean, dec$total, xlab = "Mean log-expression", ylab = "Variance")
+curve(metadata(dec)$trend(x), col = "blue", add = TRUE)
+
+# Get top variable genes 
+dec = scran::modelGeneVar(spatial_data, subset.row = genes, block = spatial_data$sample_id) 
+hvg = scran::getTopHVGs(dec, n = 1000)
+
+rowData(spatial_data[head(hvg),])[,c("gene_id", "gene_name")]
+```
+
+#### PCA
+
+With the highly variable genes, we perform PCA to reduce dimensionality, followed by UMAP to visualise the data in a lower-dimensional space, enhancing our ability to observe clustering and patterns in the data.
+
+```{r, fig.width=6, fig.height=6}
+spatial_data <- 
+  spatial_data |> 
+  scuttle::logNormCounts() |> 
+  scater::runPCA(subset_row = hvg)
+
+## Check correctness - names
+reducedDimNames(spatial_data)
+
+reducedDim(spatial_data, "PCA")[1:5, 1:5]
+```
+
+::: {.note}
+As for single-cell data, we need to verify that there is not significant batch effect. If so we need to adjust for it (a.k.a. integration) before calculating principal component. Many adjustment methods to output adjusted principal components directly. 
+:::
+
+
+#### UMAP
+
+You can appreciate that, in this case, selecting within-sample variable genes, we do not see major batch effects across samples. We see two major pixel clusters.
+
+We can appreciate that there are no major batch effects across samples, and we don't see grouping driven by sample_id.
+
+```{r, fig.width=6, fig.height=6}
+set.seed(42)
+spatial_data <- scater::runUMAP(spatial_data, dimred = "PCA")
+
+scater::plotUMAP(spatial_data, colour_by = "sample_id", point_size = 0.2) 
+```
+
+::: {.note}
+**Exercise 1.1**
+
+Visualise where the two macro clusters are located spatially. We will take a very pragmatic approach and get cluster label from splitting the UMAP coordinated in two (`colData()` and `reducedDim()` will help us, see above), and then visualise it with `ggspavis`.
+
+- Modify the `SpatialExperiment` object based on the UMAP1 dimension so to divide those 2 cluster
+- Visualise the UMAP colouring by the new labelling
+- Visualise the Visium slide colouring by the new labelling
+:::
+
+### 7. Clustering
+
+Clustering in spatial transcriptomics is crucial for understanding the intricate cellular composition of tissues. This technique groups cells/pixels based on similar gene expression profiles, enabling the identification of distinct cell types and states within a tissue's spatial context. Clustering reveals patterns of cellular organisation and differentiation, and interactions in the microenvironment.
+
+#### Transcriptome based nearest neighbours
+
+First, we establish the number of nearest neighbors to use in the k-NN graph. This graph forms the basis for clustering, using the Walktrap algorithm to detect community structures that suggest natural groupings or clusters in the data. `buildSNNGraph` is from the `scan` package.
+
+```{r}
+
+## Set number of Nearest-Neighbours (NNs)
+k <- 10
+
+## Build the k-NN graph
+g_walk <- 
+  spatial_data |> 
+  scran::buildSNNGraph( 
+    k = 10, 
+    use.dimred = "PCA"
+  ) |> 
+  igraph::cluster_walktrap()
+
+clus <- g_walk$membership
+## Check how many
+table(clus)
+```
+
+Applying Clustering Labels and Visualising Results: After determining clusters, we apply these labels back to the spatial data and visualise the results using UMAP. This allows us to observe how the data clusters in a reduced dimension space, and further visualise how these clusters map onto the physical tissue sections for context.
+
+We can appreciate here that we get two main pixel clusters.
+
+```{r, fig.width=6, fig.height=6}
+colLabels(spatial_data) <- factor(clus)
+
+scater::plotUMAP(spatial_data, colour_by = "label") + scale_color_brewer(palette = "Paired")
+```
+
+Those two clusters group the white matter from the rest of the layers.
+
+```{r, fig.width=6, fig.height=6}
+## Plot in tissue map
+ggspavis::plotSpots(spatial_data, annotate = "label") + 
+  facet_wrap(~sample_id) +
+  scale_color_brewer(palette = "Paired")
+```
+
+As for comparison, we show the manually annotated regions. We can see that while the single cell style clustering catchers, the overall tissue, architecture, a lot of details are not retrieved. We clusters cannot faithfully recapitulate the tissue morphology. However, they might represent specific cell types within morphological regions.
+
+```{r, fig.width=6, fig.height=6}
+## Plot ground truth in tissue map
+ggspavis::plotSpots(spatial_data, annotate = "spatialLIBD") +
+  facet_wrap(~sample_id) +
+  scale_color_manual(values = libd_layer_colors)
+
+```
+
+#### Spatially-aware clustering
+
+To cluster spatial regions (i.e. tissue domain) rather than single-cell types, the clustering algorithms need to take spatial context into account. For example what is the transcriptional profile of the neighbouring pixels or neighbouring cells.
+
+BANKSY combines molecular and spatial information. BANKSY leverages the fact that a cell's state can be more fully represented by considering both its own transcriptome "nd that of its local microenvironment.This algorithm embeds cells within a combined space that incorporates their own transcriptome and that of their locell'svironment, representing both the cell state and the surrounding microenvironment.
+
+Overview of the algorithm 
+
+- \* Construct a neighborhood graph between cells in physical space (k-nearest neighbors or radius nearest neighbors). 
+
+- \* We use neighborhood graph to compute two matrices: 
+
+-- \*\* Average neighborhood expression matrix 
+
+-- \*\* "Azimuthal Gabor filter" matrix. It represents the transcriptomic microenvironment around each cell. It measures the gradient of gene expression in each cell's neighborhood. 
+
+- \* These matrices are then scaled on the basis of a mixing parameter λ, which controls their relative weighting 
+
+- \* Concatenate these two matrices with the original gene–cell expression matrix 
+
+- \* Combine these three matrices by direct product
+
+[Singhal et al., 2025](https://www.nature.com/articles/s41588-024-01664-3)
+
+[Material source](https://bioconductor.org/packages/release/bioc/vignettes/Banksy/inst/doc/multi-sample.html)
+
+```{r, eval=TRUE, message=FALSE, warning=FALSE}
+library(Banksy)
+
+# scale the counts, without log transformation
+spatial_data = spatial_data |> logNormCounts(log=FALSE, name = "normcounts")
+```
+
+**Highly-variable genes**
+
+The Banksy documentation, suggest the use of `Seurat` for the detection of highly variable genes.
+
+```{r, message=FALSE, warning=FALSE}
+library(Seurat)
+
+# Convert to list
+spatial_data_list_for_seurat <- lapply(unique(spatial_data$sample_id), function(x) 
+  spatial_data[,  spatial_data$sample_id == x  ]
+)
+
+seu_list <- lapply(spatial_data_list_for_seurat, function(x) {
+    x <- as.Seurat(x, data = NULL)
+    NormalizeData(x, scale.factor = 5000, normalization.method = 'RC')
+})
+
+# Compute HVGs
+hvgs <- lapply(seu_list, function(x) {
+    VariableFeatures(FindVariableFeatures(x, nfeatures = 2000))
+})
+hvgs <- Reduce(union, hvgs)
+rm(seu_list, spatial_data_list_for_seurat)
+
+rowData(spatial_data[head(hvgs),])[,c("gene_id", "gene_name")]
+
+```
+
+We now split the data by sample, to compute the neighbourhood matrices.
+
+```{r, message=FALSE, warning=FALSE}
+# Convert to list
+spatial_data_list <- lapply(unique(spatial_data$sample_id), function(x) 
+  spatial_data[
+    hvgs, 
+    spatial_data$sample_id == x
+    ]
+)
+
+spatial_data_list <- lapply(
+  spatial_data_list, 
+  computeBanksy, # Compute the component neighborhood matrices
+  assay_name = "normcounts"
+)
+
+# Rejoin the datasets
+spe_joint <- do.call(cbind, spatial_data_list)
+```
+
+Here, we perform PCA using the BANKSY algorithm on the joint dataset. The group argument specifies how to treat different samples, ensuring that features are scaled separately per sample group to account for variations among them.
+
+::: {.note}
+Note: this step takes long time
+:::
+
+```{r, eval=TRUE, message=FALSE, warning=FALSE}
+spe_joint <- runBanksyPCA( # Run PCA on the Banskly matrix
+  spe_joint, 
+  lambda = 0.2, # spatial weighting parameter. Larger values (e.g. 0.8) incorporate more spatial neighborhood
+  group = "sample_id", # Features belonging to the grouping variable will be z-scaled separately. 
+  seed = 42
+)
+```
+
+Once the dimensional reduction is complete, we cluster the spots across all samples and use `connectClusters` to visually compare these new BANKSY clusters against manual annotations.
+
+```{r, eval=TRUE, message=FALSE, warning=FALSE}
+spe_joint <- clusterBanksy( # clustering on the principal components computed on the BANKSY matrix
+  spe_joint, 
+  lambda = 0.2, # spatial weighting parameter. Larger values (e.g. 0.8) incorporate more spatial neighborhood
+  resolution = 0.7, # numeric vector specifying resolution used for clustering (louvain / leiden).
+  seed = 42
+)
+colData(spe_joint)$clust_annotation  = colData(spe_joint)$Cluster
+
+spe_joint <- connectClusters(spe_joint)
+```
+
+As an optional step, we smooth the cluster labels for each sample independently, which can enhance the visual coherence of clusters, especially in heterogeneous biological samples.
+
+From SpiceMix paper [Chidester et al., 2023](https://www.nature.com/articles/s41588-022-01256-z)
+
+```{r, eval=TRUE, message=FALSE, warning=FALSE}
+spatial_data_list <- lapply(
+  unique(spe_joint$sample_id), 
+  function(x) 
+    spe_joint[, spe_joint$sample_id == x]
+)
+
+spatial_data_list <- lapply(
+  spatial_data_list, 
+  smoothLabels, 
+  cluster_names = "clust_M0_lam0.2_k50_res0.7",
+  k = 6L, 
+  verbose = FALSE
+)
+names(spatial_data_list) <- paste0("sample_", unique(spe_joint$sample_id))
+```
+
+The raw and smoothed cluster labels are stored in the `colData` slot of each `SingleCellExperiment` or `SpatialExperiment` object.
+
+```{r, eval=TRUE}
+cluster_metadata = 
+  colData(spatial_data_list$sample_151673)[, c("clust_M0_lam0.2_k50_res0.7", "clust_M0_lam0.2_k50_res0.7_smooth")]
+
+ 
+knitr::kable(head(cluster_metadata), format = "html")
+```
+
+Using cluster comparison metrics like the adjusted Rand index (ARI) we evaluate the performance of our clustering approach. This statistical analysis helps validate the clustering results against known labels or pathologies.
+
+The Adjusted Rand Index (ARI) is a measure of the similarity between two data clusterings. Measures degree of overlapping between two partitions.
+
+```{r, eval=TRUE}
+compareClusters(spatial_data_list$sample_151673, func = 'ARI')
+```
+
+We calculate the ARI for each sample to assess the consistency and accuracy of our clustering across different samples.
+
+```{r, eval=TRUE}
+ari <- sapply(spatial_data_list, function(x) as.numeric(tail(compareClusters(x, func = "ARI")[, 1], n = 1)))
+ari
+```
+
+Visualising Clusters and Annotations on Spatial Coordinates: We utilise the ggspavis package to visually map BANKSY clusters and manual annotations onto the spatial coordinates of the dataset, providing a comprehensive visual overview of spatial and clustering data relationships.
+
+```{r multi-sample-spatial, eval=TRUE, fig.width=6, fig.height=6}
+# Use scater:::.get_palette('tableau10medium')
+library(cowplot)
+
+pal <- c(
+  "#1abc9c", "#3498db", "#9b59b6", "#e74c3c", "#34495e",
+  "#f39c12", "#d35400", "#7f8c8d", "#2ecc71", "#e67e22"
+)
+
+ ggspavis::plotSpots(
+   do.call(cbind, spatial_data_list), 
+   annotate = sprintf("%s_smooth", "clust_M0_lam0.2_k50_res0.7"), 
+   pal = pal
+  ) +
+    facet_wrap(~sample_id) +
+    theme(legend.position = "none") +
+    labs(title = "BANKSY clusters")
+ 
+ ggspavis::plotSpots(
+   do.call(cbind, spatial_data_list), 
+   annotate = sprintf("%s", "clust_M0_lam0.2_k50_res0.7"), 
+   pal = pal
+  ) +
+    facet_wrap(~sample_id) +
+    theme(legend.position = "none") +
+    labs(title = "BANKSY clusters")
+ 
+ggspavis::plotSpots(spatial_data, annotate = "spatialLIBD") +
+  facet_wrap(~sample_id) +
+  scale_color_manual(values = libd_layer_colors) +
+  theme(legend.position = "none") +
+  labs(title = "spatialLIBD regions")
+```
+
+::: {.note}
+**Exercise 1.2**
+
+We have applied cluster smoothing using `smoothLabels`. How much do you think this operation has affected the cluster labels. To find out,
+
+-   Plot the non smoothed cluster
+-   identify the pixel that have been smoothed, and
+-   visualise them using `plotSpotQC` that we have used above.
+:::
+
+### 8. Deconvolution of pixel-based spatial data
+
+One of the popular algorithms for spatial deconvolution is SPOTlight. [Elosua-Bayes et al., 2021](https://academic.oup.com/nar/article/49/9/e50/6129341).
+
+[Source](https://bioconductor.org/packages/devel/bioc/vignettes/SPOTlight/inst/doc/SPOTlight_kidney.html)
+
+SPOTlight uses a seeded non-negative matrix factorization regression, initialized using cell-type marker genes and non-negative least squares.
+
+#### Producing the reference for single-cell databases
+
+Here, we retrieve and prepare a single-cell RNA reference. The dataset in question, zhong-prefrontal-2018, originates from a study by Zhong et al. (2018), which offers a comprehensive single-cell transcriptomic survey of the human prefrontal cortex during development . Utilising the scRNAseq package, the dataset is fetched and subsequently processed to aggregate counts across cells sharing the same sample and cell type, thereby reducing data complexity and enhancing interpretability. Further filtering steps ensure the removal of empty columns and entries with missing cell type annotations. Finally, the logNormCounts function from the scuttle package is applied to perform log-normalisation, a crucial step for mitigating technical variability and preparing the data for accurate comparative analyses .
+
+```{r, message=FALSE, warning=FALSE,  fig.width=6, fig.height=6}
+# Get reference
+library(scRNAseq)
+brain_reference <- fetchDataset("zhong-prefrontal-2018", "2023-12-22")
+
+brain_reference = 
+  brain_reference |> 
+  scuttle::aggregateAcrossCells(ids = paste(brain_reference$sample, brain_reference$cell_types, sep = "_")) 
+
+brain_reference = brain_reference[, brain_reference |> assay() |> colSums() > 0]
+brain_reference = brain_reference[, !brain_reference$cell_types |> is.na()]
+
+brain_reference = 
+  brain_reference |> 
+  logNormCounts()
+```
+
+```{r, message=FALSE}
+knitr::kable(head(colData(brain_reference)), format = "html")
+```
+
+These are the cell types included in our reference, and the number of pseudobulk samples we have for each cell type.
+
+```{r}
+
+table(brain_reference$cell_types)
+
+```
+
+These are the number of samples we have for each of the three data sets.
+
+```{r}
+
+table(brain_reference$sample)
+```
+
+
+Now, we identify the variable genes within each dataset, to not capture technical effects, and identify the union of variable genes for further analysis.
+
+```{r, warning=FALSE}
+genes <- !grepl(pattern = "^Rp[l|s]|Mt", x = rownames(brain_reference))
+
+# Convert to list
+brain_reference_list <- lapply(unique(brain_reference$dataset_id), function(x) brain_reference[, brain_reference$dataset_id == x])
+
+dec = scran::modelGeneVar(brain_reference, subset.row = genes, block = brain_reference$sample_id)
+hvg_CAQ = scran::getTopHVGs(dec, n = 1000)
+            
+hvg_CAQ = unique( unlist(hvg_CAQ))
+
+head(hvg_CAQ)
+```
+
+Initially, the code prepares the spatial data by setting gene names as row identifiers.
+
+```{r}
+spatial_data_gene_name = spatial_data
+rownames(spatial_data_gene_name) <- rowData(spatial_data_gene_name)$gene_name
+spatial_data_gene_name = logNormCounts(spatial_data_gene_name)
+```
+
+We then identify and score relevant marker genes based on their expression and significance across different cell types. The result is a curated list of high-potential marker genes, organised and ready for deeper analysis and interpretation in the context of spatial gene expression patterns.
+
+::: {.note}
+This function provides a convenience wrapper for marker gene identification between groups of cells, based on running `pairwiseTTests.` 
+
+This function represents a simpler and more intuitive summary of the differences between the groups. We do this by realizing that the p-values for these types of comparisons are largely meaningless; individual cells are not meaningful units of experimental replication, while the groups themselves are defined from the data. Thus, by discarding the p-values, we can simplify our marker selection by focusing only on the effect sizes between groups.
+:::
+
+```{r}
+mgs <- scran::scoreMarkers(
+  brain_reference, 
+  groups = brain_reference$cell_types,
+  
+  # Omit mitochondrial genes and keep all the genes in spatial
+  subset.row = 
+    grep("(^MT-)|(^mt-)|(\\.)|(-)", rownames(brain_reference), value=TRUE, invert=TRUE) |> 
+    intersect(rownames(spatial_data_gene_name))
+)
+
+# Select the most informative markers
+mgs_df <- lapply(names(mgs), function(i) {
+  x <- mgs[[i]]
+  
+  # Filter and keep relevant marker genes, those with AUC > 0.8
+  x <- x[x$mean.AUC > 0.8, ]
+  
+  # Sort the genes from highest to lowest weight
+  x <- x[order(x$mean.AUC, decreasing = TRUE), ]
+  
+  # Add gene and cluster id to the dataframe
+  x$gene <- rownames(x)
+  x$cluster <- i
+  data.frame(x)
+})
+mgs_df <- do.call(rbind, mgs_df)
+
+head(mgs_df)
+```
+
+We now utilise `SPOTlight` to deconvolve tisslet'smposition from our independent mouse brain reference. The result is visualised through a scatter pie plot, which provides a graphical representation of the spatial distribution of cell types within a let'sfic sample. This visualisation aids in understanding the spatial heterogeneity.
+
+```{r, fig.width=6, fig.height=6, message=FALSE, warning=FALSE}
+library(SPOTlight)
+
+res <- SPOTlight(
+  x = brain_reference |> assay("logcounts"),
+  y = spatial_data_gene_name |> assay("logcounts"),
+  groups = brain_reference$cell_types,
+  group_id = "cluster",
+  mgs = mgs_df,
+  hvg =  intersect(hvg_CAQ, rownames(spatial_data_gene_name)),
+  weight_id = "mean.AUC",
+  gene_id = "gene"
+)
+
+cell_first_sample = colData(spatial_data_gene_name)$sample_id=="151673"
+
+plotSpatialScatterpie(
+  x = spatial_data_gene_name[,cell_first_sample],
+  y = res$mat[cell_first_sample,],
+  cell_types = colnames(res$mat[cell_first_sample,]),
+  img = FALSE,
+  scatterpie_alpha = 1,
+  pie_scale = 0.4
+) 
+
+```
+
+Let's visualise without pit'syte_cell and endothelial cells, which oclet'sa lot of the visual spectrum.
+
+```{r, fig.width=6, fig.height=6}
+
+plotSpatialScatterpie(
+  x = spatial_data_gene_name[,cell_first_sample],
+  y = res$mat[cell_first_sample,-c(2,9)],
+  cell_types = colnames(res$mat[cell_first_sample,-c(2,9)]),
+  img = FALSE,
+  scatterpie_alpha = 1,
+  pie_scale = 0.4
+) 
+
+```
+
+Let's also exclude without muscle_cell, which occupy a lot of the visual spectrum.
+
+```{r, fig.width=6, fig.height=6}
+
+plotSpatialScatterpie(
+  x = spatial_data_gene_name[,cell_first_sample],
+  y = res$mat[cell_first_sample,-c(2, 9, 5)],
+  cell_types = colnames(res$mat[cell_first_sample,-c(2, 9, 5)]),
+  img = FALSE,
+  scatterpie_alpha = 1,
+  pie_scale = 0.4
+) 
+
+```
+
+No, let's look at the correlation matrices to see which cell type are most often occurring rather than mutually exclusive within our data set.
+
+```{r, fig.width=6, fig.height=6}
+
+plotCorrelationMatrix(res$mat)
+```
+```{r}
+mat_df = as.data.frame(res$mat)
+```
+
+#### Excercise
+
+
+
+::: {.note}
+**Exercise 1.4**
+
+Rather than looking at the correlation matrix, overall, let's observe whether the correlation structure amongst cell types is consistent across samples. Do you think it's consistent or noticeably different?
+:::
+
+
+::: {.note}
+**Exercise 1.5**
+
+## Exercise 1.5 (adapted to your current cell types)
+
+Some of the most positive correlations in the new matrix are seen between:
+
+- **Microglia** and **Neurons**  
+- **Astrocytes** and **Stem.cells**
+
+> **Microglia** are the resident immune cells of the central nervous system, constantly surveying the parenchyma and clearing debris.  
+> **Neurons** are the electrically excitable cells that transmit and process information via synaptic connections.  
+> **Astrocytes** are star-shaped glia that support neuronal metabolism, regulate extracellular ions and neurotransmitter uptake.  
+> **Stem.cells** denote undifferentiated progenitors capable of self-renewal and differentiation into multiple neural lineages.
+
+Let us now **visualise** where these pairs of cell types most co-occur in your spatial map. For **each** pair, carry out the following:
+
+1. **Label** any pixel where both cell types exceed 10 % abundance (i.e. > 0.1).  
+2. **Label** any pixel where the _sum_ of their abundances exceeds 40 % (i.e. > 0.4).  
+3. **Plot** the spatial coordinates of all pixels, **colouring** them by this new label (for example:  
+   - `0` = neither condition met  
+   - `1` = both abundances > 0.1  
+   - `2` = summed abundance > 0.4  
+
+You should end up with two analogous visualisations:
+
+- **Microglia + Neurons**  
+- **Astrocytes + Stem.cells**
+
+Feel free to reuse your previous code, simply substituting the cell-type columns and updating the thresholds as above.
+
+:::
+
+
+
+#### Bonus - Alternative reference from the Human Cell Atlas - using cellNexus
+
+[cellNexus](https://stemangiola.github.io/cellNexus/) is a query interface that allow the programmatic exploration and retrieval of the harmonised, curated and reannotated CELLxGENE single-cell human cell atlas. Data can be retrieved at cell, sample, or dataset levels based on filtering criteria.
+
+Harmonised data is stored in the ARDC Nectar Research Cloud, and most cellNexus functions interact with Nectar via web requests, so a network connection is required for most functionality.
+
+Mangiola et al., 2025 doi [doi.org/10.1101/2023.06.08.542671](https://www.biorxiv.org/content/10.1101/2023.06.08.542671v3)
+
+```{r, echo=FALSE, out.width="700px"}
+knitr::include_graphics(here("inst/images/cellNexus.png"))
+```
+
+
+```{r, eval = FALSE, message=FALSE, warning=FALSE,  fig.width=3, fig.height=3}
+# Get reference
+library(cellNexus)
+library(HDF5Array)
+
+tmp_file_path = tempfile()
+
+brain_reference =
+  
+  # Query metadata across 30M cells
+  get_metadata() |>
+  
+  # Filter your data of interest
+  dplyr::filter(tissue_groups=="cerebral lobes and cortical areas", disease == "Normal") |> 
+  
+  # Collect pseudobulk as SummarizedExperiment
+  get_pseudobulk() |> 
+  
+  # Normalise for Spotlight
+  scuttle::logNormCounts() |> 
+  
+  # Save for fast reading
+  HDF5Array::saveHDF5SummarizedExperiment(tmp_file_path, replace = TRUE)
+```
+
+```{r, eval = FALSE, message=FALSE}
+library(HDF5Array)
+
+brain_reference = HDF5Array::loadHDF5SummarizedExperiment(tmp_file_path)
+
+my_metadata = colData(brain_reference)
+
+knitr::kable(head(my_metadata), format = "html")
+```
+
+These are the cell types included in our reference, and the number of pseudobulk samples we have for each cell type.
+
+```{r, eval = FALSE}
+
+table(brain_reference$cell_type_harmonised)
+
+```
+
+These are the number of samples we have for each of the three data sets.
+
+```{r, eval = FALSE}
+
+table(brain_reference$dataset_id)
+```
+
+The `collection_id` can be used to gather information on the cell database. e.g. <https://cellxgene.cziscience.com/collections/><collection_id>
+
+```{r, eval = FALSE}
+table(brain_reference$collection_id)
+```
+
+
+
+**Session Information**
+
+```{r}
+sessionInfo()
+```
+
+**References**
+
+```{css echo=FALSE}
+.note {
+  margin: 30px;
+  padding: 1em;
+  background: #FFF8F0;
+  border: 1px solid #EFE8E0;
+  border-radius: 10px;
+}
+```
