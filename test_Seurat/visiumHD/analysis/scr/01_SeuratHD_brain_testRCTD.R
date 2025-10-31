@@ -43,6 +43,7 @@ cortex <- ScaleData(cortex) %>%
 
 # save the object to avoid rerunning the above steps
 saveRDS(cortex,"../out/object/01_cortex_testRCTD_small.rds")
+# cortex <- readRDS("../out/object/01_cortex_testRCTD_small.rds")
 
 # extract the count from the reference
 Idents(ref) <- "subclass_label"
@@ -64,7 +65,7 @@ coords <- GetTissueCoordinates(cortex)[cortex_cells_hd,1:2]
 query <- SpatialRNA(coords, counts_hd, colSums(counts_hd))
 
 # run RCTD
-RCTD <- create.RCTD(query, reference, max_cores = 28)
+RCTD <- create.RCTD(query, reference, max_cores = 30)
 saveRDS(RCTD,"../out/object/01_RCTD01_cortex_small.rds")
 
 # this is quite an long process
