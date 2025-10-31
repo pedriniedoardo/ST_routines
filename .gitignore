@@ -4,6 +4,8 @@
 .Rprofile
 .RData
 .Ruserdata
+*.h5ad
+*.bin
 
 # folder
 .Rproj.user/
