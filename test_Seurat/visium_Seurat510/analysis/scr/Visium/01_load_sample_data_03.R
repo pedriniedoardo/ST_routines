@@ -7,29 +7,32 @@ library(tidyverse)
 
 # try to load a full object -----------------------------------------------
 # identify the location of the output matrix
-matrix_dir = 'filtered_feature_bc_matrix/' 
-counts = Seurat::Read10X(data.dir = matrix_dir)  
+matrix_dir <- "../data/sample_Visium/results/spaceranger/merged/V1_Mouse_Brain_Sagittal_Anterior_Section_1/outs/filtered_feature_bc_matrix/"
 
-data = Seurat::CreateSeuratObject(
+# read in the matrix data
+counts <- Seurat::Read10X(data.dir = matrix_dir)  
+
+# create the object
+data <- Seurat::CreateSeuratObject(
   counts = counts , 
   project = 'test', 
   assay = 'Spatial')
 
-data$slice = 1 
-data$region = 'test' 
+# add metadata
+data$slice <- 1 
+data$region <- 'test' 
 
-imgpath = "spatial"
-img = Seurat::Read10X_Image(image.dir = imgpath)  
+# locate image information
+imgpath <- "../data/sample_Visium/results/spaceranger/merged/V1_Mouse_Brain_Sagittal_Anterior_Section_1/outs/spatial"
+# read in the image information
+img <- Seurat::Read10X_Image(image.dir = imgpath)  
 
+# add the image slot
 Seurat::DefaultAssay(object = img) <- 'Spatial'  
 
-img = img[colnames(x = data)]  
-data[['image']] = img  
+# add the coldata information
+img <- img[colnames(x = data)]
+data[['image']] <- img  
 
+# sample plotting
 SpatialFeaturePlot(data, features = "nCount_Spatial")
-
-
-# try to load the output from BayesPrism ----------------------------------
-
-
-
