@@ -13,5 +13,5 @@ library(patchwork)
 # save the list of raw imported objects
 list_sobj <- readRDS(file = "../out/object/list_spobj_filtered.rds")
 
-
+# sample plotting ---------------------------------------------------------
 SpatialFeaturePlot(list_sobj$`1142243F`, features = "nCount_Spatial") + theme(legend.position = "right")
