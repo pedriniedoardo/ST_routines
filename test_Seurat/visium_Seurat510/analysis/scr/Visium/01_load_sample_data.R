@@ -17,10 +17,10 @@ library(hdf5r)
 # SpatialFeaturePlot(spobj_test, features = "nCount_Spatial",interactive = T) + theme(legend.position = "right")
 
 # test for the specific file
-img <- Read10X_Image(image.dir = "../../data/GSE222322_visium_SpinalCord/GSM6919905/spatial/",
+img <- Read10X_Image(image.dir = "../data/GSE222322_visium_SpinalCord/GSM6919905/spatial/",
                      image.name = "tissue_hires_image.png")
 
-spobj <- Load10X_Spatial("../../data/GSE222322_visium_SpinalCord/GSM6919905/",filename = "filtered_feature_bc_matrix.h5",image = img)
+spobj <- Load10X_Spatial("../data/GSE222322_visium_SpinalCord/GSM6919905/",filename = "filtered_feature_bc_matrix.h5",image = img)
 
 # change the scale factor since the image is highres
 spobj@images$slice1@scale.factors$lowres <- spobj@images$slice1@scale.factors$hires
