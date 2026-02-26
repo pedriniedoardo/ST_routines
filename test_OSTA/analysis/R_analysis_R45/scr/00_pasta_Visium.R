@@ -462,10 +462,19 @@ listSFEMethods("bi", "global")
 # By being asymmetric, the local bivariate metric precisely captures the biological architecture—specifically, which cell type is sitting at the core and which cell type makes up the surrounding shell .
 # -------------------------------------------------------------------------
 listSFEMethods("bi", "local")
+# this will generate only the feature1_feature2
+# sfe_tissue <- runBivariate(sfe_tissue,
+#                            type = "localmoran_bv", # wraps the method from spdep
+#                            feature1 = "Myh1",
+#                            feature2 = "Myh2",
+#                            colGraphName = "visium",
+#                            swap_rownames = "symbol",
+#                            nsim = 100)
+
+# this will generate all the pairwise combinations
 sfe_tissue <- runBivariate(sfe_tissue,
                            type = "localmoran_bv", # wraps the method from spdep
-                           feature1 = "Myh1",
-                           feature2 = "Myh2",
+                           feature1 = c("Myh1","Myh2"),
                            colGraphName = "visium",
                            swap_rownames = "symbol",
                            nsim = 100)
@@ -719,3 +728,4 @@ joincount.multi(colData(sfe_tissue)$cluster,
 # The spatial weight matrix models spatial relationships between lattice units. Different methods exist to define the spatial weight matrix.
 # Global spatial autocorrelation measures, like Moran’s I, summarize spatial correlation over the entire field, while local measures identify local clusters of similarity or dissimilarity.
 # There exist measures of spatial autocorrelation for continuous and categorical data.
+
